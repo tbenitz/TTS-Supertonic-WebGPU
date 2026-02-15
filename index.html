@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Supertonic WebGPU TTS</title>
+<style>
+body{background:#0e0f14;color:white;font-family:Arial;text-align:center;padding:40px}
+textarea{width:80%;height:140px;background:#1b1e27;color:white;border:1px solid #444;padding:12px;font-size:16px}
+button{margin-top:20px;padding:14px 28px;font-size:16px;background:#ff3d6e;border:none;color:white;cursor:pointer}
+select{padding:10px;font-size:15px;background:#1b1e27;color:white;border:1px solid #444;margin-top:10px}
+#status{margin-top:20px;color:#00ffc8}
+audio{margin-top:20px;width:80%}
+</style>
+</head>
+<body>
+
+<h2>Supertonic WebGPU TTS (Hosted)</h2>
+
+<textarea id="text">Hello, this is running fully in your browser using WebGPU.</textarea><br>
+
+<select id="voice">
+<option value="female_01">Female 1</option>
+<option value="female_02">Female 2</option>
+<option value="male_01">Male 1</option>
+</select><br>
+
+<button onclick="generate()">Generate Speech</button>
+
+<div id="status">Loading model… first load takes 20-60s</div>
+<audio id="audio" controls></audio>
+
+<script type="module">
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2";
+
+let tts;
+
+async function load(){
+ document.getElementById("status").innerText="Downloading model + loading WebGPU...";
+ 
+ tts = await pipeline(
+   "text-to-speech",
+   "webml-community/supertonic",
+   {
+     device: "webgpu",
+     dtype: "fp32"
+   }
+ );
+
+ document.getElementById("status").innerText="Ready.";
+}
+
+load();
+
+window.generate = async () => {
+ if(!tts){
+   alert("Model loading...");
+   return;
+ }
+
+ const text = document.getElementById("text").value;
+ const voice = document.getElementById("voice").value;
+ document.getElementById("status").innerText="Generating...";
+
+ const out = await tts(text,{ speaker: voice });
+
+ const blob = new Blob([out.audio],{type:"audio/wav"});
+ const url = URL.createObjectURL(blob);
+
+ const audio = document.getElementById("audio");
+ audio.src = url;
+ audio.play();
+
+ document.getElementById("status").innerText="Done.";
+};
+</script>
+
+</body>
+</html>
