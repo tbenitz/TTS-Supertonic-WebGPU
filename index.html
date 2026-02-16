@@ -1,78 +1,403 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Supertonic WebGPU TTS</title>
-<style>
-body{background:#0e0f14;color:white;font-family:Arial;text-align:center;padding:40px}
-textarea{width:80%;height:140px;background:#1b1e27;color:white;border:1px solid #444;padding:12px;font-size:16px}
-button{margin-top:20px;padding:14px 28px;font-size:16px;background:#ff3d6e;border:none;color:white;cursor:pointer}
-select{padding:10px;font-size:15px;background:#1b1e27;color:white;border:1px solid #444;margin-top:10px}
-#status{margin-top:20px;color:#00ffc8}
-audio{margin-top:20px;width:80%}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supertonic WebGPU – Fixed Memory</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+    <style>
+        body { background-color: #f8fafc; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 18px; height: 18px; background: #0f172a; cursor: pointer; border-radius: 50%;
+        }
+    </style>
 </head>
-<body>
+<body class="min-h-screen flex items-center justify-center p-4">
+<div class="bg-white p-8 rounded-3xl shadow-xl border border-slate-200 w-full max-w-4xl">
+    <h1 class="text-4xl font-bold text-center mb-1 text-slate-900">Supertonic WebGPU</h1>
+    <p class="text-center text-slate-500 mb-10">Local TTS – full audio + MP3 export + custom filename</p>
 
-<h2>Supertonic WebGPU TTS (Hosted)</h2>
+    <div class="flex flex-col md:flex-row gap-10 items-stretch">
+        <div class="flex-1 space-y-4">
+            <h2 class="text-center text-xl font-medium text-slate-400">Text</h2>
+            <div class="relative">
+                <textarea id="textInput" class="w-full h-64 bg-slate-50 border-none rounded-2xl p-6 text-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                    placeholder="Enter text..."></textarea>
+                <div id="charCount" class="absolute bottom-4 right-4 text-xs text-slate-400">0 chars ✓</div>
+            </div>
+        </div>
 
-<textarea id="text">Hello, this is running fully in your browser using WebGPU.</textarea><br>
+        <div class="hidden md:flex items-center justify-center">
+            <div class="bg-white shadow-lg border border-slate-100 p-3 rounded-full z-10 text-yellow-400 font-bold">⚡</div>
+        </div>
 
-<select id="voice">
-<option value="female_01">Female 1</option>
-<option value="female_02">Female 2</option>
-<option value="male_01">Male 1</option>
-</select><br>
+        <div class="flex-1 space-y-8">
+            <h2 class="text-center text-xl font-medium text-slate-400">Speech</h2>
 
-<button onclick="generate()">Generate Speech</button>
+            <div class="flex items-center gap-4">
+                <span class="font-bold text-slate-700">Voice:</span>
+                <div class="flex gap-6">
+                    <button onclick="setVoice('F1')" id="btnF1" class="text-blue-500 border-b-2 border-blue-500 font-medium transition-all">Female (F1)</button>
+                    <button onclick="setVoice('M1')" id="btnM1" class="text-slate-400 hover:text-slate-600 font-medium transition-all">Male (M1)</button>
+                </div>
+            </div>
 
-<div id="status">Loading model… first load takes 20-60s</div>
-<audio id="audio" controls></audio>
+            <div class="space-y-3">
+                <div class="flex justify-between text-sm">
+                    <span class="font-bold">Quality Steps: <span id="stepsVal">12</span></span>
+                    <span class="text-[10px] text-slate-400 italic">Higher = cleaner</span>
+                </div>
+                <input type="range" id="steps" min="5" max="40" value="12" step="1" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900">
+            </div>
+
+            <div class="space-y-3">
+                <div class="flex justify-between text-sm">
+                    <span class="font-bold">Speed: <span id="speedVal">1.00</span>x</span>
+                    <span class="text-[10px] text-slate-400 italic">Adjust for pacing</span>
+                </div>
+                <input type="range" id="speed" min="0.6" max="1.4" step="0.05" value="1.0" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900">
+            </div>
+
+            <button id="genBtn" disabled class="w-full bg-[#facc15] hover:bg-[#fde047] text-slate-900 font-bold py-4 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                <span id="btnText" class="text-lg">Loading model...</span>
+            </button>
+
+            <div id="statusArea" class="hidden text-sm text-slate-600 space-y-1">
+                <div>Running: <span id="runningTime">0s</span></div>
+                <div>Est. remaining: <span id="estRemaining">--</span></div>
+                <div>Est. audio length: <span id="estDuration">0s</span></div>
+                <div id="estSizeArea">Est. file size: <span id="estSizeWav">0 KB</span> (WAV) / <span id="estSizeMp3">0 KB</span> (MP3)</div>
+                <div id="chunkStatus"></div>
+            </div>
+
+            <div id="audioArea" class="hidden space-y-3">
+                <p class="text-xs text-slate-400 font-medium uppercase">Full Audio (updates live):</p>
+                <audio id="player" controls class="w-full"></audio>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <select id="exportFormat" class="border border-slate-300 rounded px-3 py-2 text-sm flex-1">
+                        <option value="mp3" selected>MP3 (smaller)</option>
+                        <option value="wav">WAV (lossless)</option>
+                    </select>
+                    <button id="downloadBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all flex items-center justify-center gap-2 flex-1 sm:flex-none">
+                        ⬇ Download Full
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script type="module">
-import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2";
+    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
 
-let tts;
+    let tts = null;
+    let selectedVoice = 'F1';
 
-async function load(){
- document.getElementById("status").innerText="Downloading model + loading WebGPU...";
- 
- tts = await pipeline(
-   "text-to-speech",
-   "webml-community/supertonic",
-   {
-     device: "webgpu",
-     dtype: "fp32"
-   }
- );
+    const stepsInput    = document.getElementById('steps');
+    const speedInput    = document.getElementById('speed');
+    const genBtn        = document.getElementById('genBtn');
+    const btnText       = document.getElementById('btnText');
+    const textInput     = document.getElementById('textInput');
+    const player        = document.getElementById('player');
+    const downloadBtn   = document.getElementById('downloadBtn');
+    const exportFormat  = document.getElementById('exportFormat');
+    const audioArea     = document.getElementById('audioArea');
+    const statusArea    = document.getElementById('statusArea');
+    const runningTimeEl = document.getElementById('runningTime');
+    const estRemainingEl= document.getElementById('estRemaining');
+    const estDurationEl = document.getElementById('estDuration');
+    const estSizeWavEl  = document.getElementById('estSizeWav');
+    const estSizeMp3El  = document.getElementById('estSizeMp3');
+    const chunkStatusEl = document.getElementById('chunkStatus');
 
- document.getElementById("status").innerText="Ready.";
-}
+    stepsInput.addEventListener('input', (e) => document.getElementById('stepsVal').innerText = e.target.value);
+    speedInput.addEventListener('input', (e) => document.getElementById('speedVal').innerText = Number(e.target.value).toFixed(2));
+    textInput.addEventListener('input', (e) => document.getElementById('charCount').innerText = `${e.target.value.length} chars ✓`);
 
-load();
+    window.setVoice = (v) => {
+        selectedVoice = v;
+        document.getElementById('btnF1').className = v === 'F1' ? 'text-blue-500 border-b-2 border-blue-500 font-medium transition-all' : 'text-slate-400 hover:text-slate-600 font-medium transition-all';
+        document.getElementById('btnM1').className = v === 'M1' ? 'text-blue-500 border-b-2 border-blue-500 font-medium transition-all' : 'text-slate-400 hover:text-slate-600 font-medium transition-all';
+    };
 
-window.generate = async () => {
- if(!tts){
-   alert("Model loading...");
-   return;
- }
+    async function init() {
+        try {
+            btnText.textContent = 'Loading Supertonic (ONNX + WebGPU)...';
+            tts = await pipeline('text-to-speech', 'onnx-community/Supertonic-TTS-ONNX', { quantized: false, device: 'webgpu' });
+            genBtn.disabled = false;
+            btnText.innerHTML = '⚡ Generate Speech';
+        } catch (err) {
+            console.error(err);
+            btnText.textContent = 'Load failed – try device: "cpu"';
+            alert('Model load failed. Check WebGPU support.');
+        }
+    }
 
- const text = document.getElementById("text").value;
- const voice = document.getElementById("voice").value;
- document.getElementById("status").innerText="Generating...";
+    function splitText(text, maxChars = 300) {
+        const sentences = text.replace(/([.!?])\s*/g, '$1|').split('|').map(s => s.trim()).filter(Boolean);
+        const chunks = [];
+        let current = '';
+        for (const sent of sentences) {
+            if (current.length + sent.length + 1 > maxChars) {
+                if (current) chunks.push(current.trim());
+                current = sent;
+            } else {
+                current += (current ? ' ' : '') + sent;
+            }
+        }
+        if (current) chunks.push(current.trim());
+        return chunks;
+    }
 
- const out = await tts(text,{ speaker: voice });
+    let startTime, timerInterval, totalEstTime = 0, processedChunks = 0, chunkTimes = [];
+    let chunkQueue = [], isPlaying = false;
+    let fullAudioBuffers = [];  // only keep per-chunk 16-bit WAVs
+    let totalAudioSamples = 0;
+    const SAMPLE_RATE = 44100;
+    const WAV_BYTES_PER_SEC = SAMPLE_RATE * 2;
+    const MP3_KBPS = 128;
+    const MP3_BYTES_PER_SEC = (MP3_KBPS * 1000 / 8);
 
- const blob = new Blob([out.audio],{type:"audio/wav"});
- const url = URL.createObjectURL(blob);
+    player.onended = () => {
+        if (chunkQueue.length > 0) {
+            const next = chunkQueue.shift();
+            player.src = URL.createObjectURL(next);
+            player.play().catch(() => {});
+        } else {
+            isPlaying = false;
+        }
+    };
 
- const audio = document.getElementById("audio");
- audio.src = url;
- audio.play();
+    downloadBtn.onclick = async () => {
+        if (fullAudioBuffers.length === 0) return alert('No audio generated yet.');
 
- document.getElementById("status").innerText="Done.";
-};
+        const durationSec = totalAudioSamples / SAMPLE_RATE;
+        if (exportFormat.value === 'mp3' && durationSec > 900) { // >15 min
+            if (!confirm(`Audio is long (~${(durationSec/60).toFixed(1)} min).\nMP3 encoding may use high memory.\nContinue anyway?`)) return;
+        }
+
+        const filename = prompt("Enter filename (without extension):", "supertonic-audio") || "supertonic-audio";
+        const format = exportFormat.value;
+        let blob, ext;
+
+        if (format === 'wav') {
+            const combined = concatenateWavs(fullAudioBuffers);
+            blob = new Blob([combined], { type: 'audio/wav' });
+            ext = 'wav';
+        } else {
+            btnText.textContent = 'Encoding MP3...';
+            blob = await pcmToMp3Incremental(fullAudioBuffers);
+            btnText.innerHTML = '⚡ Generate Speech';
+            ext = 'mp3';
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.${ext}`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    async function pcmToMp3Incremental(wavBuffers) {
+        const encoder = new lamejs.Mp3Encoder(1, SAMPLE_RATE, MP3_KBPS);
+        const mp3Parts = [];
+
+        for (const wavBuf of wavBuffers) {
+            const view = new DataView(wavBuf);
+            const pcmLen = (wavBuf.byteLength - 44) / 2;
+            const pcm = new Int16Array(pcmLen);
+            for (let i = 0, off = 44; i < pcmLen; i++, off += 2) {
+                pcm[i] = view.getInt16(off, true);
+            }
+
+            const mp3buf = encoder.encodeBuffer(pcm);
+            if (mp3buf.length > 0) mp3Parts.push(new Uint8Array(mp3buf));
+
+            await new Promise(r => setTimeout(r, 0)); // allow GC
+        }
+
+        const flush = encoder.flush();
+        if (flush.length > 0) mp3Parts.push(new Uint8Array(flush));
+
+        return new Blob(mp3Parts, { type: 'audio/mp3' });
+    }
+
+    genBtn.onclick = async () => {
+        const fullText = textInput.value.trim();
+        if (!fullText) return alert('Enter text.');
+
+        const charCount = fullText.length;
+        if (charCount > 20000) {
+            if (!confirm(`Text is very long (${charCount.toLocaleString()} characters).\n` +
+                          `This may use a lot of memory or crash the tab.\nContinue anyway?`)) {
+                genBtn.disabled = false;
+                btnText.innerHTML = '⚡ Generate Speech';
+                return;
+            }
+        }
+
+        genBtn.disabled = true;
+        btnText.innerHTML = '<span class="animate-pulse">Starting...</span>';
+        statusArea.classList.remove('hidden');
+        audioArea.classList.remove('hidden');
+        player.pause();
+        player.src = '';
+        chunkQueue = [];
+        isPlaying = false;
+        fullAudioBuffers = [];
+        totalAudioSamples = 0;
+        startTime = Date.now();
+        processedChunks = 0;
+        chunkTimes = [];
+        totalEstTime = 0;
+
+        timerInterval = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            runningTimeEl.textContent = `${elapsed}s`;
+        }, 1000);
+
+        try {
+            const speakerUrl = `https://huggingface.co/onnx-community/Supertonic-TTS-ONNX/resolve/main/voices/${selectedVoice}.bin`;
+            const chunks = splitText(fullText);
+            const steps = Number(stepsInput.value);
+
+            totalEstTime = chunks.length * (steps > 20 ? 12 : 7);
+            updateEstRemaining();
+
+            for (let i = 0; i < chunks.length; i++) {
+                const chunkStart = Date.now();
+                btnText.textContent = `Generating chunk ${i+1}/${chunks.length}`;
+                chunkStatusEl.textContent = `Chunk ${i+1}: processing...`;
+
+                const output = await tts(chunks[i], {
+                    speaker_embeddings: speakerUrl,
+                    num_inference_steps: steps,
+                    speed: Number(speedInput.value)
+                });
+
+                const chunkDuration = (Date.now() - chunkStart) / 1000;
+                chunkTimes.push(chunkDuration);
+                processedChunks++;
+
+                if (chunkTimes.length >= 2) {
+                    const avg = chunkTimes.reduce((a,b)=>a+b,0) / chunkTimes.length;
+                    totalEstTime = avg * chunks.length;
+                }
+                updateEstRemaining();
+
+                const samples = output.audio;
+                totalAudioSamples += samples.length;
+
+                const wav = floatTo16BitPcmWav(samples, SAMPLE_RATE);
+                fullAudioBuffers.push(wav);
+
+                const chunkBlob = new Blob([wav], { type: 'audio/wav' });
+                chunkQueue.push(chunkBlob);
+
+                if (!isPlaying) {
+                    isPlaying = true;
+                    const first = chunkQueue.shift();
+                    player.src = URL.createObjectURL(first);
+                    player.play().catch(() => {});
+                }
+
+                updateEstimates();
+                chunkStatusEl.textContent = `Chunk ${i+1}: added (${(samples.length / SAMPLE_RATE).toFixed(1)}s)`;
+            }
+
+            const combined = concatenateWavs(fullAudioBuffers);
+            player.src = URL.createObjectURL(new Blob([combined], { type: 'audio/wav' }));
+
+            btnText.innerHTML = '⚡ Generate Speech';
+            chunkStatusEl.textContent = `Complete (${chunks.length} chunks)`;
+        } catch (e) {
+            console.error(e);
+            alert('Error: ' + (e.message || 'unknown'));
+            chunkStatusEl.textContent = 'Failed';
+        } finally {
+            clearInterval(timerInterval);
+            genBtn.disabled = false;
+        }
+    };
+
+    function updateEstimates() {
+        const dur = totalAudioSamples / SAMPLE_RATE;
+        estDurationEl.textContent = `${dur.toFixed(1)}s`;
+
+        const wavBytes = totalAudioSamples * 2 + 44;
+        const mp3Bytes = (dur * MP3_BYTES_PER_SEC) + 10000;
+
+        estSizeWavEl.textContent = wavBytes > 1048576 ? `${(wavBytes / 1048576).toFixed(1)} MB` : `${Math.round(wavBytes / 1024)} KB`;
+        estSizeMp3El.textContent = mp3Bytes > 1048576 ? `${(mp3Bytes / 1048576).toFixed(1)} MB` : `${Math.round(mp3Bytes / 1024)} KB`;
+    }
+
+    function updateEstRemaining() {
+        const elapsed = (Date.now() - startTime) / 1000;
+        const rem = Math.max(0, totalEstTime - elapsed);
+        estRemainingEl.textContent = `${rem.toFixed(0)}s`;
+    }
+
+    function floatTo16BitPcmWav(samples, sampleRate) {
+        const numChannels = 1, bitsPerSample = 16;
+        const bytesPerSample = bitsPerSample / 8;
+        const dataLen = samples.length * bytesPerSample;
+        const buffer = new ArrayBuffer(44 + dataLen);
+        const view = new DataView(buffer);
+
+        writeString(view, 0, 'RIFF');
+        view.setUint32(4, 36 + dataLen, true);
+        writeString(view, 8, 'WAVE');
+        writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+        view.setUint16(32, numChannels * bytesPerSample, true);
+        view.setUint16(34, bitsPerSample, true);
+        writeString(view, 36, 'data');
+        view.setUint32(40, dataLen, true);
+
+        let offset = 44;
+        for (let i = 0; i < samples.length; i++, offset += 2) {
+            let s = Math.max(-1, Math.min(1, samples[i]));
+            view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        }
+        return buffer;
+    }
+
+    function concatenateWavs(buffers) {
+        if (buffers.length === 0) return new ArrayBuffer(0);
+        if (buffers.length === 1) return buffers[0];
+
+        let totalPcmBytes = 0;
+        buffers.forEach(b => totalPcmBytes += b.byteLength - 44);
+
+        const full = new ArrayBuffer(44 + totalPcmBytes);
+        const view = new DataView(full);
+        new Uint8Array(full, 0, 44).set(new Uint8Array(buffers[0], 0, 44));
+
+        view.setUint32(4, 36 + totalPcmBytes, true);
+        view.setUint32(40, totalPcmBytes, true);
+
+        let pcmOffset = 44;
+        buffers.forEach(buf => {
+            new Uint8Array(full, pcmOffset).set(new Uint8Array(buf, 44));
+            pcmOffset += buf.byteLength - 44;
+        });
+        return full;
+    }
+
+    function writeString(view, offset, str) {
+        for (let i = 0; i < str.length; i++) {
+            view.setUint8(offset + i, str.charCodeAt(i));
+        }
+    }
+
+    init();
 </script>
-
 </body>
 </html>
