@@ -2,402 +2,1729 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supertonic WebGPU – Fixed Memory</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AAC Pro - Voice Communication</title>
     <style>
-        body { background-color: #f8fafc; }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none; appearance: none;
-            width: 18px; height: 18px; background: #0f172a; cursor: pointer; border-radius: 50%;
+        :root {
+            --bg: #0f172a;
+            --bg2: #1e293b;
+            --bg3: #334155;
+            --text: #f1f5f9;
+            --text2: #cbd5e1;
+            --text3: #94a3b8;
+            --border: #475569;
+            --accent: #3b82f6;
+            --accent2: #2563eb;
+            --green: #10b981;
+            --green2: #059669;
+            --red: #ef4444;
+            --red2: #dc2626;
+            --yellow: #f59e0b;
+            --purple: #8b5cf6;
+            --shadow: 0 1px 3px rgba(0,0,0,0.3);
+            --radius: 12px;
         }
+
+        .light {
+            --bg: #ffffff;
+            --bg2: #f8fafc;
+            --bg3: #f1f5f9;
+            --text: #0f172a;
+            --text2: #475569;
+            --text3: #94a3b8;
+            --border: #e2e8f0;
+            --shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .high-contrast {
+            --bg: #000000;
+            --bg2: #111111;
+            --bg3: #222222;
+            --text: #ffffff;
+            --text2: #ffff00;
+            --text3: #00ffff;
+            --border: #ffffff;
+            --accent: #00ffff;
+            --accent2: #00cccc;
+            --green: #00ff00;
+            --green2: #00cc00;
+            --red: #ff0000;
+            --red2: #cc0000;
+            --yellow: #ffff00;
+            --purple: #ff00ff;
+            --shadow: 0 0 0 2px #ffffff;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            font-size: 14px;
+        }
+
+        #app {
+            display: grid;
+            grid-template-rows: auto auto 1fr auto;
+            height: 100vh;
+            height: 100dvh;
+            padding: 8px;
+            gap: 8px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .top-bar {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .top-bar h1 {
+            font-size: 1.2em;
+            font-weight: 700;
+            white-space: nowrap;
+            margin-right: auto;
+            color: var(--text);
+        }
+
+        .icon-btn {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: all 0.1s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            min-height: 36px;
+        }
+
+        .icon-btn:hover { filter: brightness(1.1); }
+        .icon-btn:active { transform: scale(0.95); filter: brightness(0.9); }
+
+        .emergency-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 6px;
+        }
+
+        .emergency-btn {
+            background: var(--red);
+            color: white;
+            border: 2px solid var(--red2);
+            padding: 10px 8px;
+            border-radius: var(--radius);
+            font-weight: 700;
+            font-size: 0.8em;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.1s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .emergency-btn:hover { filter: brightness(1.1); }
+        .emergency-btn:active { transform: scale(0.95); filter: brightness(1.2); }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr 300px;
+            gap: 8px;
+            min-height: 0;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr auto;
+                overflow-y: auto;
+            }
+            #app { overflow-y: auto; }
+        }
+
+        .panel {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .panel-title {
+            font-weight: 700;
+            font-size: 0.9em;
+            margin-bottom: 8px;
+            color: var(--text2);
+            flex-shrink: 0;
+        }
+
+        .category-scroll {
+            display: flex;
+            gap: 4px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            flex-shrink: 0;
+            margin-bottom: 8px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .category-btn {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.1s;
+            flex-shrink: 0;
+        }
+
+        .category-btn:hover { filter: brightness(1.1); }
+        .category-btn.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent2);
+        }
+
+        .phrases-list {
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .phrase-item {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            padding: 10px 12px;
+            border-radius: var(--radius);
+            margin-bottom: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.1s;
+            gap: 8px;
+        }
+
+        .phrase-item:hover { background: var(--bg3); }
+        .phrase-item:active { background: var(--accent); color: white; }
+        .phrase-item.favorite { border-left: 3px solid var(--yellow); }
+
+        .phrase-text { flex: 1; min-width: 0; word-break: break-word; }
+
+        .star-btn {
+            font-size: 1.2em;
+            cursor: pointer;
+            flex-shrink: 0;
+            padding: 4px;
+            background: none;
+            border: none;
+            color: var(--yellow);
+            transition: transform 0.2s;
+        }
+
+        .star-btn:hover { transform: scale(1.2); }
+
+        .center-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 0;
+        }
+
+        .text-area-wrap {
+            position: relative;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #textInput {
+            width: 100%;
+            flex: 1;
+            min-height: 80px;
+            background: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px;
+            color: var(--text);
+            font-size: 1em;
+            resize: none;
+            font-family: inherit;
+            outline: none;
+        }
+
+        #textInput:focus { border-color: var(--accent); }
+        #textInput::placeholder { color: var(--text3); }
+
+        .predictions-row {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            padding: 4px 0;
+        }
+
+        .pred-btn {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .pred-btn:hover { background: var(--accent); color: white; }
+
+        .action-btns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: var(--radius);
+            font-weight: 700;
+            font-size: 0.9em;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.1s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .btn-primary:hover { filter: brightness(1.1); }
+        .btn-primary:active { transform: scale(0.96); filter: brightness(0.85); }
+
+        .btn-green {
+            background: var(--green);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: var(--radius);
+            font-weight: 700;
+            font-size: 1em;
+            cursor: pointer;
+            grid-column: 1 / -1;
+            transition: all 0.1s;
+        }
+
+        .btn-green:hover { filter: brightness(1.1); }
+        .btn-green:active { transform: scale(0.96); filter: brightness(0.85); }
+
+        .quick-words {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .word-chip {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .word-chip:hover { background: var(--accent); color: white; }
+
+        .history-list {
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .history-item {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            padding: 8px 10px;
+            border-radius: var(--radius);
+            margin-bottom: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.1s;
+        }
+
+        .history-item:hover { background: var(--bg3); }
+        .history-item:active { background: var(--accent); color: white; }
+
+        .delete-btn {
+            color: var(--red);
+            cursor: pointer;
+            padding: 2px 6px;
+            background: none;
+            border: none;
+            font-size: 1.1em;
+            flex-shrink: 0;
+            font-weight: bold;
+        }
+
+        .delete-btn:hover { transform: scale(1.2); }
+
+        .status-bar {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 6px 12px;
+            font-size: 0.75em;
+            text-align: center;
+            color: var(--text2);
+            flex-shrink: 0;
+        }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(2px);
+        }
+
+        .modal {
+            background: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            width: 95%;
+            max-width: 500px;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .modal h2 {
+            font-size: 1.2em;
+            margin-bottom: 16px;
+            color: var(--text);
+        }
+
+        .setting-group {
+            margin-bottom: 12px;
+        }
+
+        .setting-group label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 0.85em;
+            margin-bottom: 4px;
+            color: var(--text);
+        }
+
+        .setting-group input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .setting-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 28px;
+            height: 28px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid var(--bg);
+        }
+
+        .setting-group input[type="password"],
+        .setting-group input[type="text"],
+        .setting-group select,
+        .setting-group textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--bg2);
+            color: var(--text);
+            font-size: 0.85em;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .setting-group select:focus,
+        .setting-group input:focus,
+        .setting-group textarea:focus {
+            border-color: var(--accent);
+        }
+
+        .fine-tune-btns {
+            display: flex;
+            gap: 4px;
+            margin-top: 4px;
+        }
+
+        .fine-tune-btn {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75em;
+            font-weight: 600;
+            flex: 1;
+            text-align: center;
+        }
+
+        .fine-tune-btn:hover { background: var(--accent); color: white; }
+
+        .voice-engine-option {
+            background: var(--bg2);
+            border: 2px solid var(--border);
+            padding: 8px 12px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-size: 0.85em;
+            text-align: center;
+            font-weight: 600;
+            color: var(--text);
+            transition: all 0.2s;
+        }
+
+        .voice-engine-option:hover { border-color: var(--accent); }
+        .voice-engine-option.active {
+            border-color: var(--accent);
+            background: var(--bg3);
+            color: var(--accent);
+        }
+
+        .voice-engine-option.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            text-decoration: line-through;
+        }
+
+        .modal-btns {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .modal-btns button {
+            flex: 1;
+            padding: 10px;
+            border-radius: var(--radius);
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            font-size: 0.9em;
+            transition: all 0.1s;
+        }
+
+        .modal-btns button:hover { filter: brightness(1.1); }
+        .modal-btns button:active { transform: scale(0.96); }
+
+        .toast {
+            position: fixed;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--green);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 0.85em;
+            z-index: 2000;
+            animation: toastIn 0.3s ease;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        @keyframes toastIn {
+            from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+
+        .engine-status {
+            font-size: 0.7em;
+            padding: 4px 8px;
+            border-radius: 8px;
+            background: var(--bg3);
+            color: var(--text);
+            display: inline-block;
+            font-weight: 600;
+        }
+
+        .toggle-switch {
+            width: 44px;
+            height: 24px;
+            background: var(--border);
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle-switch.on {
+            background: var(--green);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .toggle-switch.on::after {
+            transform: translateX(20px);
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4">
-<div class="bg-white p-8 rounded-3xl shadow-xl border border-slate-200 w-full max-w-4xl">
-    <h1 class="text-4xl font-bold text-center mb-1 text-slate-900">Supertonic WebGPU</h1>
-    <p class="text-center text-slate-500 mb-10">Local TTS – full audio + MP3 export + custom filename</p>
+<body>
 
-    <div class="flex flex-col md:flex-row gap-10 items-stretch">
-        <div class="flex-1 space-y-4">
-            <h2 class="text-center text-xl font-medium text-slate-400">Text</h2>
-            <div class="relative">
-                <textarea id="textInput" class="w-full h-64 bg-slate-50 border-none rounded-2xl p-6 text-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                    placeholder="Enter text..."></textarea>
-                <div id="charCount" class="absolute bottom-4 right-4 text-xs text-slate-400">0 chars ✓</div>
+<div id="app">
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <h1>💬 AAC Pro</h1>
+        <span id="engineIndicator" class="engine-status">🌐 Browser TTS</span>
+        <button onclick="toggleTheme()" class="icon-btn" title="Toggle Theme">🌓</button>
+        <button onclick="toggleContrast()" class="icon-btn" title="High Contrast">◐</button>
+        <button onclick="openSettings()" class="icon-btn" title="Settings">⚙️ Settings</button>
+        <span class="status-bar" style="flex:1;min-width:100px;" id="statusText">🟢 Ready</span>
+    </div>
+
+    <!-- Emergency Bar -->
+    <div class="emergency-bar">
+        <button onclick="window.speak('I need help immediately')" class="emergency-btn">🆘 HELP</button>
+        <button onclick="window.speak('I am in pain')" class="emergency-btn">🔴 Pain</button>
+        <button onclick="window.speak('I need the bathroom')" class="emergency-btn">🚽 Bathroom</button>
+        <button onclick="window.speak('Call my caregiver please')" class="emergency-btn">📞 Caregiver</button>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="main-grid">
+        <!-- Left: Categories & Phrases -->
+        <div class="panel">
+            <div class="category-scroll" id="categoryBar"></div>
+            <div class="phrases-list" id="phrasesList"></div>
+            <button onclick="openCustomPhraseModal()" class="icon-btn" style="margin-top:6px;justify-content:center;">✏️ New Phrase</button>
+        </div>
+
+        <!-- Center: Text & Actions -->
+        <div class="center-panel">
+            <div class="text-area-wrap">
+                <textarea id="textInput" placeholder="Type or build your message..."></textarea>
+                <div class="predictions-row" id="predictions"></div>
+            </div>
+            <div class="quick-words" id="quickWords"></div>
+            <div class="action-btns">
+                <button onclick="speakCurrent()" class="btn-green">🔊 SPEAK</button>
+                <button onclick="getAISuggestions()" class="btn-primary">🤖 AI Suggest</button>
+                <button onclick="clearText()" class="btn-primary">🗑️ Clear</button>
             </div>
         </div>
 
-        <div class="hidden md:flex items-center justify-center">
-            <div class="bg-white shadow-lg border border-slate-100 p-3 rounded-full z-10 text-yellow-400 font-bold">⚡</div>
-        </div>
-
-        <div class="flex-1 space-y-8">
-            <h2 class="text-center text-xl font-medium text-slate-400">Speech</h2>
-
-            <div class="flex items-center gap-4">
-                <span class="font-bold text-slate-700">Voice:</span>
-                <div class="flex gap-6">
-                    <button onclick="setVoice('F1')" id="btnF1" class="text-blue-500 border-b-2 border-blue-500 font-medium transition-all">Female (F1)</button>
-                    <button onclick="setVoice('M1')" id="btnM1" class="text-slate-400 hover:text-slate-600 font-medium transition-all">Male (M1)</button>
-                </div>
+        <!-- Right: History -->
+        <div class="panel">
+            <div style="display:flex;gap:4px;flex-shrink:0;margin-bottom:6px;">
+                <span class="panel-title" style="flex:1;">📝 History</span>
+                <button onclick="toggleFavorites()" class="icon-btn" style="padding:4px 8px;font-size:0.7em;">⭐</button>
+                <button onclick="clearHistory()" class="icon-btn" style="padding:4px 8px;font-size:0.7em;">🗑️</button>
             </div>
-
-            <div class="space-y-3">
-                <div class="flex justify-between text-sm">
-                    <span class="font-bold">Quality Steps: <span id="stepsVal">12</span></span>
-                    <span class="text-[10px] text-slate-400 italic">Higher = cleaner</span>
-                </div>
-                <input type="range" id="steps" min="5" max="40" value="12" step="1" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900">
-            </div>
-
-            <div class="space-y-3">
-                <div class="flex justify-between text-sm">
-                    <span class="font-bold">Speed: <span id="speedVal">1.00</span>x</span>
-                    <span class="text-[10px] text-slate-400 italic">Adjust for pacing</span>
-                </div>
-                <input type="range" id="speed" min="0.6" max="1.4" step="0.05" value="1.0" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900">
-            </div>
-
-            <button id="genBtn" disabled class="w-full bg-[#facc15] hover:bg-[#fde047] text-slate-900 font-bold py-4 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                <span id="btnText" class="text-lg">Loading model...</span>
-            </button>
-
-            <div id="statusArea" class="hidden text-sm text-slate-600 space-y-1">
-                <div>Running: <span id="runningTime">0s</span></div>
-                <div>Est. remaining: <span id="estRemaining">--</span></div>
-                <div>Est. audio length: <span id="estDuration">0s</span></div>
-                <div id="estSizeArea">Est. file size: <span id="estSizeWav">0 KB</span> (WAV) / <span id="estSizeMp3">0 KB</span> (MP3)</div>
-                <div id="chunkStatus"></div>
-            </div>
-
-            <div id="audioArea" class="hidden space-y-3">
-                <p class="text-xs text-slate-400 font-medium uppercase">Full Audio (updates live):</p>
-                <audio id="player" controls class="w-full"></audio>
-                <div class="flex flex-col sm:flex-row gap-4">
-                    <select id="exportFormat" class="border border-slate-300 rounded px-3 py-2 text-sm flex-1">
-                        <option value="mp3" selected>MP3 (smaller)</option>
-                        <option value="wav">WAV (lossless)</option>
-                    </select>
-                    <button id="downloadBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all flex items-center justify-center gap-2 flex-1 sm:flex-none">
-                        ⬇ Download Full
-                    </button>
-                </div>
-            </div>
+            <div class="history-list" id="historyList"></div>
         </div>
     </div>
 </div>
 
-<script type="module">
-    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal-overlay" style="display:none;">
+    <div class="modal">
+        <h2>⚙️ Settings</h2>
+        
+        <div class="setting-group">
+            <label>DeepSeek API Key</label>
+            <input type="password" id="apiKeyInput" placeholder="sk-...">
+        </div>
 
-    let tts = null;
-    let selectedVoice = 'F1';
+        <div class="setting-group">
+            <label>Voice Engine <span id="engineStatus" style="font-weight:normal;font-size:0.8em;"></span></label>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+                <div class="voice-engine-option active" onclick="switchEngine('browser')" data-engine="browser">🌐 Browser</div>
+                <div class="voice-engine-option" onclick="switchEngine('supertonic')" data-engine="supertonic" id="supertonicOption">🎵 Supertonic</div>
+                <div class="voice-engine-option" onclick="switchEngine('google')" data-engine="google">🔊 Google</div>
+            </div>
+            <div id="engineMessage" style="font-size:0.75em;margin-top:4px;color:var(--text2);"></div>
+        </div>
 
-    const stepsInput    = document.getElementById('steps');
-    const speedInput    = document.getElementById('speed');
-    const genBtn        = document.getElementById('genBtn');
-    const btnText       = document.getElementById('btnText');
-    const textInput     = document.getElementById('textInput');
-    const player        = document.getElementById('player');
-    const downloadBtn   = document.getElementById('downloadBtn');
-    const exportFormat  = document.getElementById('exportFormat');
-    const audioArea     = document.getElementById('audioArea');
-    const statusArea    = document.getElementById('statusArea');
-    const runningTimeEl = document.getElementById('runningTime');
-    const estRemainingEl= document.getElementById('estRemaining');
-    const estDurationEl = document.getElementById('estDuration');
-    const estSizeWavEl  = document.getElementById('estSizeWav');
-    const estSizeMp3El  = document.getElementById('estSizeMp3');
-    const chunkStatusEl = document.getElementById('chunkStatus');
+        <div class="setting-group">
+            <label>Voice <span id="voiceLabel"></span></label>
+            <select id="voiceSelect" onchange="updateVoice()"></select>
+        </div>
 
-    stepsInput.addEventListener('input', (e) => document.getElementById('stepsVal').innerText = e.target.value);
-    speedInput.addEventListener('input', (e) => document.getElementById('speedVal').innerText = Number(e.target.value).toFixed(2));
-    textInput.addEventListener('input', (e) => document.getElementById('charCount').innerText = `${e.target.value.length} chars ✓`);
+        <div class="setting-group">
+            <label>Speed: <span id="speedVal">1.00x</span></label>
+            <input type="range" id="speedSlider" min="0.25" max="4" step="0.01" value="1" oninput="updateSpeed()">
+            <div class="fine-tune-btns">
+                <button class="fine-tune-btn" onclick="adjustSpeed(-0.01)">-0.01</button>
+                <button class="fine-tune-btn" onclick="adjustSpeed(-0.05)">-0.05</button>
+                <button class="fine-tune-btn" onclick="adjustSpeed(0.05)">+0.05</button>
+                <button class="fine-tune-btn" onclick="adjustSpeed(0.01)">+0.01</button>
+            </div>
+        </div>
 
-    window.setVoice = (v) => {
-        selectedVoice = v;
-        document.getElementById('btnF1').className = v === 'F1' ? 'text-blue-500 border-b-2 border-blue-500 font-medium transition-all' : 'text-slate-400 hover:text-slate-600 font-medium transition-all';
-        document.getElementById('btnM1').className = v === 'M1' ? 'text-blue-500 border-b-2 border-blue-500 font-medium transition-all' : 'text-slate-400 hover:text-slate-600 font-medium transition-all';
-    };
+        <div class="setting-group">
+            <label>Pitch: <span id="pitchVal">1.00</span></label>
+            <input type="range" id="pitchSlider" min="0.1" max="3" step="0.01" value="1" oninput="updatePitch()">
+            <div class="fine-tune-btns">
+                <button class="fine-tune-btn" onclick="adjustPitch(-0.01)">-0.01</button>
+                <button class="fine-tune-btn" onclick="adjustPitch(-0.05)">-0.05</button>
+                <button class="fine-tune-btn" onclick="adjustPitch(0.05)">+0.05</button>
+                <button class="fine-tune-btn" onclick="adjustPitch(0.01)">+0.01</button>
+            </div>
+        </div>
 
-    async function init() {
+        <div class="setting-group">
+            <label>Volume Boost: <span id="volVal">100%</span></label>
+            <input type="range" id="volumeSlider" min="10" max="400" step="1" value="100" oninput="updateVolume()">
+            <div class="fine-tune-btns">
+                <button class="fine-tune-btn" onclick="adjustVolume(-1)">-1%</button>
+                <button class="fine-tune-btn" onclick="adjustVolume(-10)">-10%</button>
+                <button class="fine-tune-btn" onclick="adjustVolume(10)">+10%</button>
+                <button class="fine-tune-btn" onclick="adjustVolume(1)">+1%</button>
+            </div>
+        </div>
+
+        <div class="setting-group">
+            <label>Text Size: <span id="textSizeVal">14px</span></label>
+            <input type="range" id="textSizeSlider" min="10" max="28" step="1" value="14" oninput="updateTextSize()">
+            <div class="fine-tune-btns">
+                <button class="fine-tune-btn" onclick="adjustTextSize(-1)">Smaller</button>
+                <button class="fine-tune-btn" onclick="adjustTextSize(1)">Larger</button>
+            </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0;">
+            <label style="font-weight:600;font-size:0.85em;color:var(--text);">Auto-Speak on Select</label>
+            <div class="toggle-switch" id="autoSpeakToggle" onclick="toggleAutoSpeak()"></div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0;">
+            <label style="font-weight:600;font-size:0.85em;color:var(--text);">Haptic Feedback</label>
+            <div class="toggle-switch on" id="hapticToggle" onclick="toggleHaptic()"></div>
+        </div>
+
+        <div class="modal-btns">
+            <button onclick="saveSettings()" style="background:var(--green);color:white;">💾 Save</button>
+            <button onclick="testVoice()" style="background:var(--accent);color:white;">🔊 Test</button>
+            <button onclick="closeSettings()" style="background:var(--bg3);color:var(--text);">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Phrase Modal -->
+<div id="customPhraseModal" class="modal-overlay" style="display:none;">
+    <div class="modal">
+        <h2>✏️ Create Custom Phrase</h2>
+        <div class="setting-group">
+            <textarea id="customPhraseInput" style="height:80px;resize:none;" placeholder="Type your phrase..."></textarea>
+        </div>
+        <div class="setting-group">
+            <select id="customCategory">
+                <option value="greetings">Greetings</option>
+                <option value="needs">Needs</option>
+                <option value="feelings">Feelings</option>
+                <option value="questions">Questions</option>
+                <option value="medical">Medical</option>
+                <option value="social">Social</option>
+            </select>
+        </div>
+        <div class="modal-btns">
+            <button onclick="saveCustomPhrase()" style="background:var(--green);color:white;">💾 Save</button>
+            <button onclick="closeCustomPhraseModal()" style="background:var(--bg3);color:var(--text);">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============ GLOBAL STATE ============
+const APP = {
+    voiceEngine: 'browser',
+    voice: null,
+    voiceName: '',
+    speed: 1.0,
+    pitch: 1.0,
+    volume: 100,
+    textSize: 14,
+    autoSpeak: false,
+    haptic: true,
+    dark: true,
+    contrast: false,
+    apiKey: '',
+    category: 'greetings',
+    history: [],
+    favorites: new Set(),
+    customPhrases: [],
+    showFavorites: false,
+    supertonicReady: false,
+    supertonicPipeline: null,
+    audioCtx: null,
+    gainNode: null,
+    googleVoices: [
+        { name: 'en-US-Standard-A', label: 'Male 1 (Standard)' },
+        { name: 'en-US-Standard-D', label: 'Male 2 (Standard)' },
+        { name: 'en-US-Standard-E', label: 'Female 1 (Standard)' },
+        { name: 'en-US-Standard-F', label: 'Female 2 (Standard)' },
+        { name: 'en-US-Wavenet-A', label: 'Male 1 (Wavenet)' },
+        { name: 'en-US-Wavenet-D', label: 'Male 2 (Wavenet)' },
+        { name: 'en-US-Wavenet-E', label: 'Female 1 (Wavenet)' },
+        { name: 'en-US-Wavenet-F', label: 'Female 2 (Wavenet)' }
+    ],
+    supertonicVoices: [
+        { name: 'F1', label: 'Female 1' },
+        { name: 'F2', label: 'Female 2' },
+        { name: 'M1', label: 'Male 1' }
+    ]
+};
+
+const CATEGORIES = ['greetings','needs','feelings','questions','medical','social'];
+const PHRASES = {
+    greetings: ["Hello, how are you?","Good morning","Good afternoon","Good evening","Nice to see you","How have you been?","It's been a while","Welcome"],
+    needs: ["I need water please","I'm hungry","I need to use the bathroom","Can you help me adjust?","I'm too hot","I'm too cold","I need my medication","Turn on the TV please","I'd like to go outside","I need to rest"],
+    feelings: ["I'm feeling good","I'm tired","I'm in pain","I'm anxious","I'm happy","I'm sad","I'm frustrated","I'm bored","I'm comfortable","I'm uncomfortable"],
+    questions: ["What time is it?","What day is it?","Can you repeat that?","Can you explain?","Who is coming today?","When is my appointment?","Can I have privacy?","Where are we going?","How long will it take?","Is family coming?"],
+    medical: ["I need medication","Pain level is high","Trouble breathing","Need to see doctor","Check blood pressure","I feel dizzy","Need physical therapy","When is next treatment?","Check my oxygen","Contact my doctor"],
+    social: ["Tell me about your day","I appreciate your help","That's interesting","I agree","I disagree","Let's watch a movie","Can you read to me?","I'd like to call someone","Let's listen to music","Thank you for everything"]
+};
+const QUICK_WORDS = ['I','want','need','feel','please','thank you','yes','no','maybe','water','help','rest','now'];
+
+// ============ EXPOSE TO GLOBAL SCOPE ============
+window.speak = speak;
+window.speakCurrent = speakCurrent;
+window.openSettings = openSettings;
+window.closeSettings = closeSettings;
+window.saveSettings = saveSettings;
+window.testVoice = testVoice;
+window.switchEngine = switchEngine;
+window.updateVoice = updateVoice;
+window.updateSpeed = updateSpeed;
+window.adjustSpeed = adjustSpeed;
+window.updatePitch = updatePitch;
+window.adjustPitch = adjustPitch;
+window.updateVolume = updateVolume;
+window.adjustVolume = adjustVolume;
+window.updateTextSize = updateTextSize;
+window.adjustTextSize = adjustTextSize;
+window.toggleAutoSpeak = toggleAutoSpeak;
+window.toggleHaptic = toggleHaptic;
+window.toggleTheme = toggleTheme;
+window.toggleContrast = toggleContrast;
+window.clearText = clearText;
+window.getAISuggestions = getAISuggestions;
+window.openCustomPhraseModal = openCustomPhraseModal;
+window.closeCustomPhraseModal = closeCustomPhraseModal;
+window.saveCustomPhrase = saveCustomPhrase;
+window.toggleFavorites = toggleFavorites;
+window.clearHistory = clearHistory;
+
+// ============ INIT ============
+function init() {
+    loadAll();
+    applyTheme();
+    applyTextSize();
+    buildCategoryBar();
+    loadPhrases();
+    buildQuickWords();
+    renderHistory();
+    updateEngineIndicator();
+    
+    document.getElementById('textInput').addEventListener('input', onTextInput);
+    document.getElementById('textInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); speakCurrent(); }
+    });
+    
+    // Check WebGPU for Supertonic
+    if ('gpu' in navigator) {
+        document.getElementById('supertonicOption').classList.remove('disabled');
+        document.getElementById('supertonicOption').title = '';
+    } else {
+        document.getElementById('supertonicOption').classList.add('disabled');
+        document.getElementById('supertonicOption').title = 'WebGPU not available';
+    }
+    
+    populateVoiceList();
+    updateStatus('🟢 Ready');
+    
+    // Preload Supertonic if it was the last used engine
+    if (APP.voiceEngine === 'supertonic') {
+        initSupertonic();
+    }
+}
+
+function loadAll() {
+    try {
+        const d = JSON.parse(localStorage.getItem('aac_state') || '{}');
+        APP.voiceEngine = d.voiceEngine || 'browser';
+        APP.speed = d.speed ?? 1.0;
+        APP.pitch = d.pitch ?? 1.0;
+        APP.volume = d.volume ?? 100;
+        APP.textSize = d.textSize ?? 14;
+        APP.autoSpeak = d.autoSpeak || false;
+        APP.haptic = d.haptic !== false;
+        APP.dark = d.dark !== false; // default true
+        APP.contrast = d.contrast || false;
+        APP.apiKey = d.apiKey || '';
+        APP.customPhrases = d.customPhrases || [];
+        APP.history = d.history || [];
+        APP.favorites = new Set(d.favorites || []);
+        APP.voiceName = d.voiceName || getDefaultVoiceName();
+    } catch(e) {
+        APP.voiceName = getDefaultVoiceName();
+    }
+}
+
+function getDefaultVoiceName() {
+    if (APP.voiceEngine === 'supertonic') return 'F1';
+    if (APP.voiceEngine === 'google') return 'en-US-Standard-E';
+    return '';
+}
+
+function saveAll() {
+    localStorage.setItem('aac_state', JSON.stringify({
+        voiceEngine: APP.voiceEngine,
+        speed: APP.speed,
+        pitch: APP.pitch,
+        volume: APP.volume,
+        textSize: APP.textSize,
+        autoSpeak: APP.autoSpeak,
+        haptic: APP.haptic,
+        dark: APP.dark,
+        contrast: APP.contrast,
+        apiKey: APP.apiKey,
+        customPhrases: APP.customPhrases,
+        history: APP.history.slice(0, 200),
+        favorites: [...APP.favorites],
+        voiceName: APP.voiceName
+    }));
+}
+
+// ============ THEME ============
+function applyTheme() {
+    document.body.className = '';
+    if (APP.contrast) {
+        document.body.classList.add('high-contrast');
+    } else if (!APP.dark) {
+        document.body.classList.add('light');
+    }
+    // Default is dark (no class needed)
+}
+
+function toggleTheme() {
+    APP.dark = !APP.dark;
+    if (APP.dark) APP.contrast = false;
+    applyTheme();
+    saveAll();
+    haptic();
+}
+
+function toggleContrast() {
+    APP.contrast = !APP.contrast;
+    if (APP.contrast) APP.dark = true;
+    applyTheme();
+    saveAll();
+    haptic();
+}
+
+function applyTextSize() {
+    document.body.style.fontSize = APP.textSize + 'px';
+}
+
+function updateTextSize() {
+    APP.textSize = parseInt(document.getElementById('textSizeSlider').value);
+    document.getElementById('textSizeVal').textContent = APP.textSize + 'px';
+    applyTextSize();
+}
+
+function adjustTextSize(d) {
+    APP.textSize = Math.max(10, Math.min(28, APP.textSize + d));
+    document.getElementById('textSizeSlider').value = APP.textSize;
+    document.getElementById('textSizeVal').textContent = APP.textSize + 'px';
+    applyTextSize();
+}
+
+// ============ AUDIO ============
+function getAudioCtx() {
+    if (!APP.audioCtx) {
+        APP.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        APP.gainNode = APP.audioCtx.createGain();
+        APP.gainNode.connect(APP.audioCtx.destination);
+    }
+    if (APP.audioCtx.state === 'suspended') {
+        APP.audioCtx.resume();
+    }
+    APP.gainNode.gain.value = APP.volume / 100;
+    return APP.audioCtx;
+}
+
+// ============ SPEECH ============
+async function speak(text) {
+    if (!text || !text.trim()) return;
+    text = text.trim();
+    
+    updateStatus('🔊 Speaking...');
+    haptic();
+    
+    // Add to history
+    APP.history.unshift({ text, time: Date.now() });
+    if (APP.history.length > 200) APP.history.pop();
+    saveAll();
+    renderHistory();
+    
+    let success = false;
+    
+    try {
+        switch(APP.voiceEngine) {
+            case 'supertonic':
+                if (APP.supertonicReady && APP.supertonicPipeline) {
+                    success = await speakSupertonic(text);
+                }
+                break;
+            case 'google':
+                if (APP.apiKey) {
+                    success = await speakGoogleTTS(text);
+                }
+                break;
+            case 'browser':
+            default:
+                success = await speakBrowser(text);
+                break;
+        }
+    } catch(e) {
+        console.error('Speech error:', e);
+    }
+    
+    // Fallback chain
+    if (!success && APP.voiceEngine !== 'browser') {
+        updateStatus('⚠️ Falling back to browser TTS...');
+        try { success = await speakBrowser(text); } catch(e) {}
+    }
+    
+    if (!success) {
+        // Force browser TTS as last resort
+        try { success = await speakBrowser(text); } catch(e) {}
+    }
+    
+    updateStatus(success ? '🟢 Ready' : '❌ Speech failed');
+    if (!success) toast('Speech failed. Check voice settings.');
+}
+
+function speakBrowser(text) {
+    return new Promise((resolve) => {
         try {
-            btnText.textContent = 'Loading Supertonic (ONNX + WebGPU)...';
-            tts = await pipeline('text-to-speech', 'onnx-community/Supertonic-TTS-ONNX', { quantized: false, device: 'webgpu' });
-            genBtn.disabled = false;
-            btnText.innerHTML = '⚡ Generate Speech';
-        } catch (err) {
-            console.error(err);
-            btnText.textContent = 'Load failed – try device: "cpu"';
-            alert('Model load failed. Check WebGPU support.');
+            window.speechSynthesis.cancel();
+            setTimeout(() => {
+                const u = new SpeechSynthesisUtterance(text);
+                const voices = window.speechSynthesis.getVoices();
+                
+                if (APP.voiceName && voices.length > 0) {
+                    const found = voices.find(v => v.name === APP.voiceName);
+                    if (found) u.voice = found;
+                    else if (voices.length > 0) u.voice = voices[0];
+                } else if (voices.length > 0) {
+                    u.voice = voices[0];
+                }
+                
+                u.rate = APP.speed;
+                u.pitch = APP.pitch;
+                u.volume = Math.min(1, APP.volume / 100);
+                
+                let resolved = false;
+                u.onend = () => { if (!resolved) { resolved = true; resolve(true); } };
+                u.onerror = () => { if (!resolved) { resolved = true; resolve(false); } };
+                
+                window.speechSynthesis.speak(u);
+                setTimeout(() => { if (!resolved) { resolved = true; resolve(true); } }, 30000);
+            }, 100);
+        } catch(e) {
+            resolve(false);
         }
-    }
+    });
+}
 
-    function splitText(text, maxChars = 300) {
-        const sentences = text.replace(/([.!?])\s*/g, '$1|').split('|').map(s => s.trim()).filter(Boolean);
-        const chunks = [];
-        let current = '';
-        for (const sent of sentences) {
-            if (current.length + sent.length + 1 > maxChars) {
-                if (current) chunks.push(current.trim());
-                current = sent;
-            } else {
-                current += (current ? ' ' : '') + sent;
+async function speakGoogleTTS(text) {
+    if (!APP.apiKey) return false;
+    
+    try {
+        const response = await fetch(
+            `https://texttospeech.googleapis.com/v1/text:synthesize?key=${APP.apiKey}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    input: { text },
+                    voice: { 
+                        languageCode: 'en-US', 
+                        name: APP.voiceName || 'en-US-Standard-E'
+                    },
+                    audioConfig: { 
+                        audioEncoding: 'MP3',
+                        speakingRate: APP.speed,
+                        pitch: APP.pitch,
+                        volumeGainDb: 20 * Math.log10(Math.min(1, APP.volume / 100))
+                    }
+                })
             }
-        }
-        if (current) chunks.push(current.trim());
-        return chunks;
+        );
+        
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        
+        const data = await response.json();
+        if (!data.audioContent) throw new Error('No audio');
+        
+        const binaryStr = atob(data.audioContent);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+        
+        const ctx = getAudioCtx();
+        const audioBuffer = await ctx.decodeAudioData(bytes.buffer);
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(APP.gainNode);
+        
+        return new Promise((resolve) => {
+            source.onended = () => resolve(true);
+            source.start(0);
+            setTimeout(() => resolve(true), 30000);
+        });
+    } catch(e) {
+        console.error('Google TTS error:', e);
+        return false;
     }
+}
 
-    let startTime, timerInterval, totalEstTime = 0, processedChunks = 0, chunkTimes = [];
-    let chunkQueue = [], isPlaying = false;
-    let fullAudioBuffers = [];  // only keep per-chunk 16-bit WAVs
-    let totalAudioSamples = 0;
-    const SAMPLE_RATE = 44100;
-    const WAV_BYTES_PER_SEC = SAMPLE_RATE * 2;
-    const MP3_KBPS = 128;
-    const MP3_BYTES_PER_SEC = (MP3_KBPS * 1000 / 8);
-
-    player.onended = () => {
-        if (chunkQueue.length > 0) {
-            const next = chunkQueue.shift();
-            player.src = URL.createObjectURL(next);
-            player.play().catch(() => {});
-        } else {
-            isPlaying = false;
-        }
-    };
-
-    downloadBtn.onclick = async () => {
-        if (fullAudioBuffers.length === 0) return alert('No audio generated yet.');
-
-        const durationSec = totalAudioSamples / SAMPLE_RATE;
-        if (exportFormat.value === 'mp3' && durationSec > 900) { // >15 min
-            if (!confirm(`Audio is long (~${(durationSec/60).toFixed(1)} min).\nMP3 encoding may use high memory.\nContinue anyway?`)) return;
-        }
-
-        const filename = prompt("Enter filename (without extension):", "supertonic-audio") || "supertonic-audio";
-        const format = exportFormat.value;
-        let blob, ext;
-
-        if (format === 'wav') {
-            const combined = concatenateWavs(fullAudioBuffers);
-            blob = new Blob([combined], { type: 'audio/wav' });
-            ext = 'wav';
-        } else {
-            btnText.textContent = 'Encoding MP3...';
-            blob = await pcmToMp3Incremental(fullAudioBuffers);
-            btnText.innerHTML = '⚡ Generate Speech';
-            ext = 'mp3';
-        }
-
+async function speakSupertonic(text) {
+    if (!APP.supertonicReady || !APP.supertonicPipeline) return false;
+    
+    try {
+        const voiceFile = APP.voiceName || 'F1';
+        const voiceUrl = `https://huggingface.co/onnx-community/Supertonic-TTS-ONNX/resolve/main/voices/${voiceFile}.bin`;
+        
+        const output = await APP.supertonicPipeline(text, {
+            speaker_embeddings: voiceUrl,
+            num_inference_steps: 8,
+            speed: APP.speed
+        });
+        
+        if (!output || !output.audio) throw new Error('No audio output');
+        
+        const blob = new Blob([output.audio], { type: 'audio/wav' });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${filename}.${ext}`;
-        a.click();
-        URL.revokeObjectURL(url);
-    };
-
-    async function pcmToMp3Incremental(wavBuffers) {
-        const encoder = new lamejs.Mp3Encoder(1, SAMPLE_RATE, MP3_KBPS);
-        const mp3Parts = [];
-
-        for (const wavBuf of wavBuffers) {
-            const view = new DataView(wavBuf);
-            const pcmLen = (wavBuf.byteLength - 44) / 2;
-            const pcm = new Int16Array(pcmLen);
-            for (let i = 0, off = 44; i < pcmLen; i++, off += 2) {
-                pcm[i] = view.getInt16(off, true);
-            }
-
-            const mp3buf = encoder.encodeBuffer(pcm);
-            if (mp3buf.length > 0) mp3Parts.push(new Uint8Array(mp3buf));
-
-            await new Promise(r => setTimeout(r, 0)); // allow GC
+        const audio = new Audio(url);
+        
+        try {
+            const ctx = getAudioCtx();
+            const source = ctx.createMediaElementSource(audio);
+            source.connect(APP.gainNode);
+        } catch(e) {
+            // Already connected, use directly
         }
-
-        const flush = encoder.flush();
-        if (flush.length > 0) mp3Parts.push(new Uint8Array(flush));
-
-        return new Blob(mp3Parts, { type: 'audio/mp3' });
+        
+        return new Promise((resolve) => {
+            audio.onended = () => { URL.revokeObjectURL(url); resolve(true); };
+            audio.onerror = () => { URL.revokeObjectURL(url); resolve(false); };
+            audio.play().catch(() => resolve(false));
+            setTimeout(() => { URL.revokeObjectURL(url); resolve(true); }, 30000);
+        });
+    } catch(e) {
+        console.error('Supertonic error:', e);
+        return false;
     }
+}
 
-    genBtn.onclick = async () => {
-        const fullText = textInput.value.trim();
-        if (!fullText) return alert('Enter text.');
+function speakCurrent() {
+    const text = document.getElementById('textInput').value.trim();
+    if (text) {
+        speak(text);
+        document.getElementById('textInput').value = '';
+    } else {
+        toast('Type or select text first');
+    }
+}
 
-        const charCount = fullText.length;
-        if (charCount > 20000) {
-            if (!confirm(`Text is very long (${charCount.toLocaleString()} characters).\n` +
-                          `This may use a lot of memory or crash the tab.\nContinue anyway?`)) {
-                genBtn.disabled = false;
-                btnText.innerHTML = '⚡ Generate Speech';
+function testVoice() {
+    speak('Hello, this is a voice test. How does this sound?');
+    closeSettings();
+}
+
+// ============ VOICE ENGINE ============
+async function switchEngine(engine) {
+    if (engine === 'supertonic') {
+        if (!('gpu' in navigator)) {
+            toast('⚠️ WebGPU not available. Requires Chrome 113+.');
+            return;
+        }
+        if (!APP.supertonicReady) {
+            updateStatus('⏳ Loading Supertonic...');
+            document.getElementById('engineMessage').textContent = 'Loading model...';
+            const success = await initSupertonic();
+            if (!success) {
+                toast('⚠️ Supertonic failed to load.');
+                document.getElementById('engineMessage').textContent = 'Failed to load. Using browser TTS.';
                 return;
             }
+            document.getElementById('engineMessage').textContent = '';
         }
+    }
+    
+    APP.voiceEngine = engine;
+    APP.voiceName = getDefaultVoiceName();
+    APP.voice = null;
+    
+    document.querySelectorAll('.voice-engine-option').forEach(el => {
+        el.classList.toggle('active', el.dataset.engine === engine);
+    });
+    
+    updateEngineIndicator();
+    populateVoiceList();
+    saveAll();
+    toast(`Voice engine: ${engine === 'browser' ? 'Browser' : engine === 'supertonic' ? 'Supertonic' : 'Google'}`);
+}
 
-        genBtn.disabled = true;
-        btnText.innerHTML = '<span class="animate-pulse">Starting...</span>';
-        statusArea.classList.remove('hidden');
-        audioArea.classList.remove('hidden');
-        player.pause();
-        player.src = '';
-        chunkQueue = [];
-        isPlaying = false;
-        fullAudioBuffers = [];
-        totalAudioSamples = 0;
-        startTime = Date.now();
-        processedChunks = 0;
-        chunkTimes = [];
-        totalEstTime = 0;
-
-        timerInterval = setInterval(() => {
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            runningTimeEl.textContent = `${elapsed}s`;
-        }, 1000);
-
-        try {
-            const speakerUrl = `https://huggingface.co/onnx-community/Supertonic-TTS-ONNX/resolve/main/voices/${selectedVoice}.bin`;
-            const chunks = splitText(fullText);
-            const steps = Number(stepsInput.value);
-
-            totalEstTime = chunks.length * (steps > 20 ? 12 : 7);
-            updateEstRemaining();
-
-            for (let i = 0; i < chunks.length; i++) {
-                const chunkStart = Date.now();
-                btnText.textContent = `Generating chunk ${i+1}/${chunks.length}`;
-                chunkStatusEl.textContent = `Chunk ${i+1}: processing...`;
-
-                const output = await tts(chunks[i], {
-                    speaker_embeddings: speakerUrl,
-                    num_inference_steps: steps,
-                    speed: Number(speedInput.value)
-                });
-
-                const chunkDuration = (Date.now() - chunkStart) / 1000;
-                chunkTimes.push(chunkDuration);
-                processedChunks++;
-
-                if (chunkTimes.length >= 2) {
-                    const avg = chunkTimes.reduce((a,b)=>a+b,0) / chunkTimes.length;
-                    totalEstTime = avg * chunks.length;
-                }
-                updateEstRemaining();
-
-                const samples = output.audio;
-                totalAudioSamples += samples.length;
-
-                const wav = floatTo16BitPcmWav(samples, SAMPLE_RATE);
-                fullAudioBuffers.push(wav);
-
-                const chunkBlob = new Blob([wav], { type: 'audio/wav' });
-                chunkQueue.push(chunkBlob);
-
-                if (!isPlaying) {
-                    isPlaying = true;
-                    const first = chunkQueue.shift();
-                    player.src = URL.createObjectURL(first);
-                    player.play().catch(() => {});
-                }
-
-                updateEstimates();
-                chunkStatusEl.textContent = `Chunk ${i+1}: added (${(samples.length / SAMPLE_RATE).toFixed(1)}s)`;
-            }
-
-            const combined = concatenateWavs(fullAudioBuffers);
-            player.src = URL.createObjectURL(new Blob([combined], { type: 'audio/wav' }));
-
-            btnText.innerHTML = '⚡ Generate Speech';
-            chunkStatusEl.textContent = `Complete (${chunks.length} chunks)`;
-        } catch (e) {
-            console.error(e);
-            alert('Error: ' + (e.message || 'unknown'));
-            chunkStatusEl.textContent = 'Failed';
-        } finally {
-            clearInterval(timerInterval);
-            genBtn.disabled = false;
+async function initSupertonic() {
+    try {
+        updateStatus('⏳ Downloading Supertonic model (this may take a moment)...');
+        
+        const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');
+        
+        APP.supertonicPipeline = await pipeline(
+            'text-to-speech',
+            'onnx-community/Supertonic-TTS-ONNX',
+            { quantized: true, device: 'webgpu' }
+        );
+        
+        APP.supertonicReady = true;
+        document.getElementById('supertonicOption').classList.remove('disabled');
+        document.getElementById('engineMessage').textContent = '✅ Supertonic loaded!';
+        updateStatus('✅ Supertonic ready');
+        updateEngineIndicator();
+        populateVoiceList();
+        
+        // If supertonic was the selected engine, switch to it
+        if (APP.voiceEngine === 'supertonic') {
+            updateEngineIndicator();
+            populateVoiceList();
         }
-    };
-
-    function updateEstimates() {
-        const dur = totalAudioSamples / SAMPLE_RATE;
-        estDurationEl.textContent = `${dur.toFixed(1)}s`;
-
-        const wavBytes = totalAudioSamples * 2 + 44;
-        const mp3Bytes = (dur * MP3_BYTES_PER_SEC) + 10000;
-
-        estSizeWavEl.textContent = wavBytes > 1048576 ? `${(wavBytes / 1048576).toFixed(1)} MB` : `${Math.round(wavBytes / 1024)} KB`;
-        estSizeMp3El.textContent = mp3Bytes > 1048576 ? `${(mp3Bytes / 1048576).toFixed(1)} MB` : `${Math.round(mp3Bytes / 1024)} KB`;
-    }
-
-    function updateEstRemaining() {
-        const elapsed = (Date.now() - startTime) / 1000;
-        const rem = Math.max(0, totalEstTime - elapsed);
-        estRemainingEl.textContent = `${rem.toFixed(0)}s`;
-    }
-
-    function floatTo16BitPcmWav(samples, sampleRate) {
-        const numChannels = 1, bitsPerSample = 16;
-        const bytesPerSample = bitsPerSample / 8;
-        const dataLen = samples.length * bytesPerSample;
-        const buffer = new ArrayBuffer(44 + dataLen);
-        const view = new DataView(buffer);
-
-        writeString(view, 0, 'RIFF');
-        view.setUint32(4, 36 + dataLen, true);
-        writeString(view, 8, 'WAVE');
-        writeString(view, 12, 'fmt ');
-        view.setUint32(16, 16, true);
-        view.setUint16(20, 1, true);
-        view.setUint16(22, numChannels, true);
-        view.setUint32(24, sampleRate, true);
-        view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
-        view.setUint16(32, numChannels * bytesPerSample, true);
-        view.setUint16(34, bitsPerSample, true);
-        writeString(view, 36, 'data');
-        view.setUint32(40, dataLen, true);
-
-        let offset = 44;
-        for (let i = 0; i < samples.length; i++, offset += 2) {
-            let s = Math.max(-1, Math.min(1, samples[i]));
-            view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        
+        return true;
+    } catch(e) {
+        console.error('Supertonic init error:', e);
+        APP.supertonicReady = false;
+        APP.supertonicPipeline = null;
+        document.getElementById('supertonicOption').classList.add('disabled');
+        document.getElementById('engineMessage').textContent = '❌ Failed to load. Check console.';
+        updateStatus('⚠️ Supertonic unavailable');
+        
+        if (APP.voiceEngine === 'supertonic') {
+            APP.voiceEngine = 'browser';
+            APP.voiceName = '';
+            updateEngineIndicator();
+            populateVoiceList();
+            saveAll();
         }
-        return buffer;
+        return false;
     }
+}
 
-    function concatenateWavs(buffers) {
-        if (buffers.length === 0) return new ArrayBuffer(0);
-        if (buffers.length === 1) return buffers[0];
+function updateEngineIndicator() {
+    const ind = document.getElementById('engineIndicator');
+    switch(APP.voiceEngine) {
+        case 'browser': ind.textContent = '🌐 Browser TTS'; break;
+        case 'supertonic': ind.textContent = APP.supertonicReady ? '🎵 Supertonic' : '🎵 Supertonic (loading)'; break;
+        case 'google': ind.textContent = '🔊 Google TTS'; break;
+    }
+}
 
-        let totalPcmBytes = 0;
-        buffers.forEach(b => totalPcmBytes += b.byteLength - 44);
-
-        const full = new ArrayBuffer(44 + totalPcmBytes);
-        const view = new DataView(full);
-        new Uint8Array(full, 0, 44).set(new Uint8Array(buffers[0], 0, 44));
-
-        view.setUint32(4, 36 + totalPcmBytes, true);
-        view.setUint32(40, totalPcmBytes, true);
-
-        let pcmOffset = 44;
-        buffers.forEach(buf => {
-            new Uint8Array(full, pcmOffset).set(new Uint8Array(buf, 44));
-            pcmOffset += buf.byteLength - 44;
+// ============ VOICE LIST ============
+function populateVoiceList() {
+    const sel = document.getElementById('voiceSelect');
+    sel.innerHTML = '';
+    
+    if (APP.voiceEngine === 'supertonic') {
+        APP.supertonicVoices.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.name;
+            opt.textContent = v.label;
+            if (APP.voiceName === v.name) opt.selected = true;
+            sel.appendChild(opt);
         });
-        return full;
-    }
-
-    function writeString(view, offset, str) {
-        for (let i = 0; i < str.length; i++) {
-            view.setUint8(offset + i, str.charCodeAt(i));
+        if (!APP.voiceName || !APP.supertonicVoices.find(v => v.name === APP.voiceName)) {
+            APP.voiceName = 'F1';
+            sel.value = 'F1';
+        }
+    } else if (APP.voiceEngine === 'google') {
+        APP.googleVoices.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.name;
+            opt.textContent = v.label;
+            if (APP.voiceName === v.name) opt.selected = true;
+            sel.appendChild(opt);
+        });
+        if (!APP.voiceName || !APP.googleVoices.find(v => v.name === APP.voiceName)) {
+            APP.voiceName = 'en-US-Standard-E';
+            sel.value = 'en-US-Standard-E';
+        }
+    } else {
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length === 0) {
+            const opt = document.createElement('option');
+            opt.textContent = 'Loading voices...';
+            sel.appendChild(opt);
+            setTimeout(populateVoiceList, 500);
+            return;
+        }
+        voices.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.name;
+            opt.textContent = `${v.name} (${v.lang})`;
+            if (APP.voiceName === v.name) opt.selected = true;
+            sel.appendChild(opt);
+        });
+        if (!APP.voiceName || !voices.find(v => v.name === APP.voiceName)) {
+            APP.voiceName = voices[0]?.name || '';
+            if (voices[0]) sel.value = voices[0].name;
         }
     }
+    
+    document.getElementById('voiceLabel').textContent = APP.voiceName || 'Default';
+}
 
-    init();
+function updateVoice() {
+    APP.voiceName = document.getElementById('voiceSelect').value;
+    document.getElementById('voiceLabel').textContent = APP.voiceName;
+    if (APP.voiceEngine === 'browser') {
+        APP.voice = window.speechSynthesis.getVoices().find(v => v.name === APP.voiceName) || null;
+    }
+    saveAll();
+}
+
+// ============ SLIDERS ============
+function updateSpeed() {
+    APP.speed = parseFloat(document.getElementById('speedSlider').value);
+    document.getElementById('speedVal').textContent = APP.speed.toFixed(2) + 'x';
+    saveAll();
+}
+
+function adjustSpeed(d) {
+    APP.speed = Math.max(0.25, Math.min(4, +(APP.speed + d).toFixed(2)));
+    document.getElementById('speedSlider').value = APP.speed;
+    document.getElementById('speedVal').textContent = APP.speed.toFixed(2) + 'x';
+    saveAll();
+}
+
+function updatePitch() {
+    APP.pitch = parseFloat(document.getElementById('pitchSlider').value);
+    document.getElementById('pitchVal').textContent = APP.pitch.toFixed(2);
+    saveAll();
+}
+
+function adjustPitch(d) {
+    APP.pitch = Math.max(0.1, Math.min(3, +(APP.pitch + d).toFixed(2)));
+    document.getElementById('pitchSlider').value = APP.pitch;
+    document.getElementById('pitchVal').textContent = APP.pitch.toFixed(2);
+    saveAll();
+}
+
+function updateVolume() {
+    APP.volume = parseInt(document.getElementById('volumeSlider').value);
+    document.getElementById('volVal').textContent = APP.volume + '%';
+    if (APP.gainNode) APP.gainNode.gain.value = APP.volume / 100;
+    saveAll();
+}
+
+function adjustVolume(d) {
+    APP.volume = Math.max(10, Math.min(400, APP.volume + d));
+    document.getElementById('volumeSlider').value = APP.volume;
+    document.getElementById('volVal').textContent = APP.volume + '%';
+    if (APP.gainNode) APP.gainNode.gain.value = APP.volume / 100;
+    saveAll();
+}
+
+// ============ TOGGLES ============
+function toggleAutoSpeak() {
+    APP.autoSpeak = !APP.autoSpeak;
+    document.getElementById('autoSpeakToggle').classList.toggle('on', APP.autoSpeak);
+    saveAll();
+    haptic();
+}
+
+function toggleHaptic() {
+    APP.haptic = !APP.haptic;
+    document.getElementById('hapticToggle').classList.toggle('on', APP.haptic);
+    saveAll();
+}
+
+// ============ CATEGORIES & PHRASES ============
+function buildCategoryBar() {
+    const bar = document.getElementById('categoryBar');
+    bar.innerHTML = '';
+    CATEGORIES.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = 'category-btn' + (APP.category === cat ? ' active' : '');
+        btn.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+        btn.onclick = () => selectCategory(cat);
+        bar.appendChild(btn);
+    });
+}
+
+function selectCategory(cat) {
+    APP.category = cat;
+    buildCategoryBar();
+    loadPhrases();
+    haptic();
+}
+
+function loadPhrases() {
+    const list = document.getElementById('phrasesList');
+    list.innerHTML = '';
+    
+    let phrases = [...(PHRASES[APP.category] || [])];
+    APP.customPhrases.filter(p => p.category === APP.category).forEach(p => phrases.push(p.text));
+    
+    phrases.forEach(text => {
+        const div = document.createElement('div');
+        div.className = 'phrase-item' + (APP.favorites.has(text) ? ' favorite' : '');
+        div.innerHTML = `
+            <span class="phrase-text">${escHtml(text)}</span>
+            <button class="star-btn">${APP.favorites.has(text) ? '⭐' : '☆'}</button>
+        `;
+        div.querySelector('.phrase-text').onclick = () => selectPhrase(text);
+        div.querySelector('.star-btn').onclick = (e) => { e.stopPropagation(); toggleFav(text); };
+        list.appendChild(div);
+    });
+}
+
+function selectPhrase(text) {
+    haptic();
+    if (APP.autoSpeak) {
+        speak(text);
+    } else {
+        document.getElementById('textInput').value = text;
+        toast('Phrase loaded. Press SPEAK.');
+    }
+}
+
+function toggleFav(text) {
+    if (APP.favorites.has(text)) {
+        APP.favorites.delete(text);
+    } else {
+        APP.favorites.add(text);
+    }
+    saveAll();
+    loadPhrases();
+    renderHistory();
+}
+
+// ============ QUICK WORDS ============
+function buildQuickWords() {
+    const div = document.getElementById('quickWords');
+    div.innerHTML = '';
+    QUICK_WORDS.forEach(w => {
+        const chip = document.createElement('span');
+        chip.className = 'word-chip';
+        chip.textContent = w;
+        chip.onclick = () => { 
+            const inp = document.getElementById('textInput');
+            inp.value = (inp.value + ' ' + w).trim();
+            inp.focus();
+            haptic();
+        };
+        div.appendChild(chip);
+    });
+}
+
+// ============ PREDICTIONS ============
+function onTextInput() {
+    const text = document.getElementById('textInput').value;
+    const last = text.split(' ').pop().toLowerCase();
+    const preds = document.getElementById('predictions');
+    preds.innerHTML = '';
+    
+    if (last.length < 2) return;
+    
+    const words = [...QUICK_WORDS, 'help','pain','please','now','later','better','worse','morning','night','food','drink','rest'];
+    const matches = words.filter(w => w.startsWith(last) && w !== last).slice(0, 6);
+    
+    matches.forEach(w => {
+        const btn = document.createElement('button');
+        btn.className = 'pred-btn';
+        btn.textContent = w;
+        btn.onclick = () => {
+            const words2 = text.split(' ');
+            words2[words2.length - 1] = w;
+            document.getElementById('textInput').value = words2.join(' ') + ' ';
+            onTextInput();
+            haptic();
+        };
+        preds.appendChild(btn);
+    });
+}
+
+// ============ HISTORY ============
+function renderHistory() {
+    const list = document.getElementById('historyList');
+    list.innerHTML = '';
+    
+    const items = APP.showFavorites ? APP.history.filter(h => APP.favorites.has(h.text)) : APP.history;
+    
+    if (items.length === 0) {
+        list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3);font-size:0.8em;">No history</div>';
+        return;
+    }
+    
+    items.forEach((item, i) => {
+        const div = document.createElement('div');
+        div.className = 'history-item';
+        div.innerHTML = `
+            <span style="flex:1;min-width:0;word-break:break-word;cursor:pointer;">${escHtml(item.text)}</span>
+            <button class="star-btn">${APP.favorites.has(item.text) ? '⭐' : '☆'}</button>
+            <button class="delete-btn">✕</button>
+        `;
+        div.querySelector('span').onclick = () => speak(item.text);
+        div.querySelector('.star-btn').onclick = (e) => { e.stopPropagation(); toggleFav(item.text); };
+        div.querySelector('.delete-btn').onclick = (e) => { e.stopPropagation(); deleteHistory(i); };
+        list.appendChild(div);
+    });
+}
+
+function deleteHistory(i) {
+    APP.history.splice(i, 1);
+    saveAll();
+    renderHistory();
+    haptic();
+}
+
+function clearHistory() {
+    APP.history = [];
+    saveAll();
+    renderHistory();
+}
+
+function toggleFavorites() {
+    APP.showFavorites = !APP.showFavorites;
+    renderHistory();
+    toast(APP.showFavorites ? 'Showing favorites' : 'Showing all');
+}
+
+// ============ AI ============
+async function getAISuggestions() {
+    if (!APP.apiKey) {
+        toast('Set API key in Settings');
+        openSettings();
+        return;
+    }
+    
+    updateStatus('🤖 AI thinking...');
+    try {
+        const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP.apiKey}` },
+            body: JSON.stringify({
+                model: 'deepseek-chat',
+                messages: [{ role: 'user', content: 'Generate 6 short helpful phrases for someone with limited speech. Return only phrases separated by newlines.' }],
+                max_tokens: 200
+            })
+        });
+        const data = await res.json();
+        const phrases = data.choices[0].message.content.split('\n').filter(s => s.trim());
+        
+        APP.category = '_ai';
+        const list = document.getElementById('phrasesList');
+        list.innerHTML = '<div style="font-weight:700;padding:4px;color:var(--accent);">🤖 AI Suggestions:</div>';
+        phrases.forEach(t => {
+            const div = document.createElement('div');
+            div.className = 'phrase-item';
+            div.innerHTML = `<span class="phrase-text">${escHtml(t)}</span>`;
+            div.querySelector('.phrase-text').onclick = () => selectPhrase(t);
+            list.appendChild(div);
+        });
+        updateStatus('🤖 AI ready');
+    } catch(e) {
+        const fallback = ['Can you help me please?','I need something','Thank you for your patience','I appreciate your help','Can we talk for a moment?','I have something to say'];
+        APP.category = '_ai';
+        const list = document.getElementById('phrasesList');
+        list.innerHTML = '<div style="font-weight:700;padding:4px;">Offline Suggestions:</div>';
+        fallback.forEach(t => {
+            const div = document.createElement('div');
+            div.className = 'phrase-item';
+            div.innerHTML = `<span class="phrase-text">${escHtml(t)}</span>`;
+            div.querySelector('.phrase-text').onclick = () => selectPhrase(t);
+            list.appendChild(div);
+        });
+    }
+}
+
+// ============ MODALS ============
+function openSettings() {
+    document.getElementById('settingsModal').style.display = 'flex';
+    document.getElementById('apiKeyInput').value = APP.apiKey;
+    document.getElementById('speedSlider').value = APP.speed;
+    document.getElementById('speedVal').textContent = APP.speed.toFixed(2) + 'x';
+    document.getElementById('pitchSlider').value = APP.pitch;
+    document.getElementById('pitchVal').textContent = APP.pitch.toFixed(2);
+    document.getElementById('volumeSlider').value = APP.volume;
+    document.getElementById('volVal').textContent = APP.volume + '%';
+    document.getElementById('textSizeSlider').value = APP.textSize;
+    document.getElementById('textSizeVal').textContent = APP.textSize + 'px';
+    document.getElementById('autoSpeakToggle').classList.toggle('on', APP.autoSpeak);
+    document.getElementById('hapticToggle').classList.toggle('on', APP.haptic);
+    document.getElementById('voiceLabel').textContent = APP.voiceName || 'Default';
+    
+    document.querySelectorAll('.voice-engine-option').forEach(el => {
+        el.classList.toggle('active', el.dataset.engine === APP.voiceEngine);
+    });
+    
+    document.getElementById('engineStatus').textContent = 
+        APP.voiceEngine === 'supertonic' && !APP.supertonicReady ? '(loading...)' : '';
+    document.getElementById('engineMessage').textContent = '';
+    
+    populateVoiceList();
+    haptic();
+}
+
+function closeSettings() {
+    document.getElementById('settingsModal').style.display = 'none';
+}
+
+function saveSettings() {
+    APP.apiKey = document.getElementById('apiKeyInput').value.trim();
+    saveAll();
+    closeSettings();
+    toast('Settings saved ✅');
+}
+
+function openCustomPhraseModal() {
+    document.getElementById('customPhraseModal').style.display = 'flex';
+    haptic();
+}
+
+function closeCustomPhraseModal() {
+    document.getElementById('customPhraseModal').style.display = 'none';
+    document.getElementById('customPhraseInput').value = '';
+}
+
+function saveCustomPhrase() {
+    const text = document.getElementById('customPhraseInput').value.trim();
+    const cat = document.getElementById('customCategory').value;
+    if (!text) return;
+    APP.customPhrases.push({ text, category: cat });
+    saveAll();
+    closeCustomPhraseModal();
+    if (APP.category === cat) loadPhrases();
+    toast('Phrase saved! ⭐');
+}
+
+function clearText() {
+    document.getElementById('textInput').value = '';
+    document.getElementById('predictions').innerHTML = '';
+}
+
+// ============ UTILS ============
+function escHtml(s) {
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+}
+
+function haptic() { 
+    if (APP.haptic && navigator.vibrate) {
+        try { navigator.vibrate(15); } catch(e) {}
+    }
+}
+
+function updateStatus(m) { 
+    document.getElementById('statusText').textContent = m; 
+}
+
+function toast(msg) {
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2000);
+}
+
+// Close modals on overlay click
+window.addEventListener('click', e => {
+    if (e.target.classList.contains('modal-overlay')) {
+        e.target.style.display = 'none';
+    }
+});
+
+// Load voices when available
+if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = () => {
+        if (APP.voiceEngine === 'browser') populateVoiceList();
+    };
+    window.speechSynthesis.getVoices();
+}
+
+// Init on load
+window.addEventListener('load', init);
+window.addEventListener('beforeunload', saveAll);
+setInterval(saveAll, 30000);
 </script>
 </body>
 </html>
